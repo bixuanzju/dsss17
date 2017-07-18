@@ -83,6 +83,11 @@ Fixpoint insert x l :=
     a counterexample. *)
 
 (* FILL IN HERE *)
+
+Conjecture insertP : forall x l, In x (insert x l).
+
+QuickChick insertP.
+
 (** [] *)
 
 (** **** Exercise: 3 stars (insert2)  *)
@@ -93,6 +98,12 @@ Fixpoint insert x l :=
     way.) *)
 
 (* FILL IN HERE *)
+
+Conjecture insertP2 : forall x y l, In y l -> In y (insert x l).
+
+QuickChick insertP2.
+
+
 (** [] *)
 
 (* ################################################################# *)

@@ -151,6 +151,18 @@ Compute (show 42).
 (** Write a [Show] instance for pairs of a nat and a bool. *)
 
 (* FILL IN HERE *)
+
+Instance showNatBool : Show (nat * bool) :=
+  {
+    show := fun p => match p with
+                    (n, b) => "(" ++ show n ++ ", " ++ show b ++ ")"
+                  end
+
+  }.
+
+Compute (show (3, true)).
+
+
 (** [] *)
 
 (** Now, given the class [Show], we can define functions that use the
@@ -238,6 +250,14 @@ Instance eqNat : Eq nat :=
     this type. *)
 
 (* FILL IN HERE *)
+
+Instance eqboolArrowBool : Eq (bool -> bool) :=
+  {
+    eqb := fun f1 f2 =>
+             andb (eqb (f1 true) (f2 true)) (eqb (f1 false) (f2 false))
+  }.
+
+
 (** [] *)
 
 (* ================================================================= *)
@@ -287,6 +307,43 @@ Instance showList {A : Type} `{Show A} : Show (list A) :=
     the [option] type constructor. *)
 
 (* FILL IN HERE *)
+
+Fixpoint eqListAux {A : Type} `{Eq A} (l1 l2 : list A) :=
+  match (l1, l2) with
+  | (nil, nil) => true
+  | (cons h1 hh1, cons h2 hh2) =>
+    andb (eqb h1 h2) (eqListAux hh1 hh2)
+  | _ => false
+  end.
+
+Instance eqEx {A : Type} `{Eq A} : Eq (list A) :=
+  {
+    eqb := eqListAux
+  }.
+
+Instance showOption {A : Type} `{Show A} : Show (option A) :=
+  {
+    show p := match p with
+              | Some v => "Some " ++ show v
+              | None => "None"
+              end
+  }.
+
+Compute (show (Some 3)).
+Compute (show None).
+
+Instance eqOption {A : Type} `{Eq A} : Eq (option A) :=
+  {
+    eqb p1 p2 := match p1, p2 with
+                 | Some v1, Some v2 => eqb v1 v2
+                 | None, None => true
+                 | _, _ => false
+                 end
+  }.
+
+Compute (eqb (Some 3) (Some 4)).
+Compute (eqb (Some true) (Some true)).
+
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (boolArrowA)  *)
@@ -295,6 +352,13 @@ Instance showList {A : Type} `{Show A} : Show (list A) :=
     itself is an [Eq] type.  Show that it works for [bool->bool->nat]. *)
 
 (* FILL IN HERE *)
+
+Instance eqGeneral {A : Type} `{Eq A} : Eq (bool -> A) :=
+  {
+    eqb p1 p2 := andb (eqb (p1 true) (p2 true)) (eqb (p1 false) (p2 false))
+  }.
+
+
 (** [] *)
 
 (* ================================================================= *)
@@ -358,12 +422,72 @@ Definition max {A: Type} `{Eq A} `{Ord A} (x y : A) : A :=
 (** Define [Ord] instances for options and pairs. *)
 
 (* FILL IN HERE *)
+
+
+(**
+
+Assume None is less than Some because Haskell thinks so:
+
+Prelude> compare Nothing (Just 3)
+LT
+
+ *)
+
+Instance ordOption {A : Type} `{Ord A} : Ord (option A) :=
+  {
+    le p1 p2 := match p1, p2 with
+                | Some v1, Some v2 => le v1 v2
+                | None, None => true
+                | None, Some _ => true
+                | _, _ => false
+                end
+  }.
+
+Instance ordPair {A B : Type} `{Ord A} `{Ord B} : Ord (A * B) :=
+  {
+    le p1 p2 := match p1, p2 with
+                | (p11, p12), (p21, p22) => andb (le p11 p21) (le p12 p22)
+                end
+  }.
+
+Compute (le (1,2) (1,3)).
+
+
 (** [] *)
 
 (** **** Exercise: 3 stars (ordList)  *)
 (** For a little more practice, define an [Ord] instance for lists. *)
 
 (* FILL IN HERE *)
+
+
+(**
+
+Assuming empty list is less than non-empty list because Haskell
+thinks so:
+
+Prelude> compare [] [1,2,3]
+LT
+
+ *)
+
+Fixpoint ordListAux {A : Type} `{Ord A} (l1 l2 : list A) :=
+  match l1, l2 with
+  | nil, nil => true
+  | cons h1 hh1, cons h2 hh2 =>
+    andb (le h1 h2) (ordListAux hh1 hh2)
+  | nil, _ => true
+  | _, nil => false
+  end.
+
+Instance ordList {A : Type} `{Ord A} : Ord (list A) :=
+  {
+    le := ordListAux
+  }.
+
+Compute (le [4;2] [2;3;3]).
+
+
 (** [] *)
 
 (* ################################################################# *)
@@ -937,6 +1061,17 @@ Defined.
     decidable propositions, then so are [~P] and [P\/Q]. *)
 
 (* FILL IN HERE *)
+
+Instance Dec_ned_disj {P Q} {H : Dec P} {I : Dec Q} : Dec (~P /\ (P \/ Q)).
+Proof.
+  constructor. unfold decidable.
+  destruct H as [D]; destruct D;
+  destruct I as [T]; destruct T; auto;
+  right; intros C; destruct C; try contradiction.
+  destruct H0; contradiction.
+Defined.
+
+
 (** [] *)
 
 (** **** Exercise: 4 stars: (Dec_All)  *)
@@ -954,6 +1089,19 @@ Fixpoint All {T : Type} (P : T -> Prop) (l : list T) : Prop :=
     decidable for every [a]. *)
 
 (* FILL IN HERE *)
+
+Instance Dec_All {T} {P : T -> Prop} {H : forall a, Dec (P a)} {l : list T}: Dec (All P l).
+Proof.
+  constructor. unfold decidable.
+  induction l; simpl.
+  left. trivial.
+  destruct IHl;
+  destruct (H a) as [D]; destruct D;
+  try solve [right; intros C; inversion C; auto].
+  left; auto.
+Defined.
+
+
 (** [] *)
 
 (** One reason for doing all this is that it makes it easy to move
@@ -1192,6 +1340,13 @@ Fail Check (foo bool).
 
 (** **** Exercise: 1 star (debugDefaulting)  *)
 (** Do [Set Typeclasses Debug] and verify that this is what happened.  [] *)
+
+Set Typeclasses Debug.
+
+Definition foo' x := if eqb x x then "Of course" else "Impossible".
+
+Unset Typeclasses Debug.
+
 
 (* ================================================================= *)
 (** ** Manipulating the Hint Database *)
