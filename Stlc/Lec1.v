@@ -203,6 +203,12 @@ Definition demo_rep3 :=
 
 (* FILL IN HERE *)
 
+Definition two := abs (abs (app (var_b 1) (app (var_b 1) (var_b 0)))).
+
+Definition COMB_K := abs (abs (var_b 1)).
+
+Definition COMB_S := abs (abs (abs (app (app (var_b 2) (var_b 0)) (app (var_b 1) (var_b 0))))).
+
 (** There are two important advantages of the locally nameless
     representation:
      - Alpha-equivalent terms have a unique representation.
@@ -268,20 +274,36 @@ Qed.
 Lemma subst_eq_var: forall (x : var) u,
   [x ~> u](var_f x) = u.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  simpl.
+  destruct (x == x); auto.
+  contradiction.
+Qed.
 
 (** *** Exercise [subst_neq_var] *)
 
 Lemma subst_neq_var : forall (x y : var) u,
   y <> x -> [x ~> u](var_f y) = var_f y.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  simpl.
+  destruct (y == x); auto.
+  contradiction.
+Qed.
 
 (** *** Exercise [subst_same] *)
 
 Lemma subst_same : forall y e, [y ~> var_f y] e = e.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction e; simpl; auto.
+  destruct (x == y); auto.
+  subst; auto.
+  rewrite IHe. trivial.
+  rewrite IHe1.
+  rewrite IHe2.
+  trivial.
+Qed.
 
 
 (*************************************************************************)
@@ -327,7 +349,14 @@ Qed.
 Lemma subst_exp_fresh_eq : forall (x : var) e u,
   x `notin` fv_exp e -> [x ~> u] e = e.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction e; simpl in *; auto.
+  destruct (x0 == x); auto. subst. destruct H. fsetdec.
+  rewrite IHe; auto.
+  rewrite IHe1.
+  rewrite IHe2; auto.
+  fsetdec.
+Qed.
 
 (*************************************************************************)
 (** ** Additional Exercises                                              *)
@@ -380,7 +409,9 @@ forall u e x,
   x `notin` fv_exp e ->
   x `notin` fv_exp ([x ~> u] e).
 Proof.
- (* FILL IN HERE *) Admitted.
+  intros.
+  rewrite subst_exp_fresh_eq; auto.
+Qed.
 
 (** *** Exercise [fv_exp_subst_exp_fresh] *)
 
@@ -389,7 +420,10 @@ forall e u x,
   x `notin` fv_exp e ->
   fv_exp ([x ~> u] e) [=] fv_exp e.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  rewrite subst_exp_fresh_eq; auto.
+  fsetdec.
+Qed.
 
 (** *** Exercise [fv_exp_subst_exp_upper] *)
 
@@ -397,7 +431,11 @@ Lemma fv_exp_subst_exp_upper :
 forall e1 e2 x1,
   fv_exp (subst_exp e2 x1 e1) [<=] fv_exp e2 `union` remove x1 (fv_exp e1).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction e1; simpl; try fsetdec.
+  destruct (x == x1); subst; simpl; fsetdec.
+Qed.
+
 
 
 (*************************************************************************)
@@ -501,7 +539,10 @@ Lemma subst_var : forall (x y : var) u e,
   lc_exp u ->
   ([x ~> u] e) ^ y = [x ~> u] (e ^ y).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  rewrite subst_exp_open_exp_wrt_exp; auto.
+  rewrite subst_neq_var; auto.
+Qed.
 
 (** *** Exercise [subst_exp_intro] *)
 
@@ -522,8 +563,16 @@ Proof.
   unfold open.
   generalize 0.
   induction e; intro n0; simpl.
-  (* FILL IN HERE *) Admitted.
-
+  destruct (lt_eq_lt_dec n n0); simpl; auto.
+  destruct s; simpl; auto.
+  subst. destruct (x == x); auto. contradiction.
+  destruct (x == x0).
+  subst. destruct FV_EXP. simpl. fsetdec.
+  destruct (x0 == x); auto. symmetry in e. contradiction.
+  rewrite IHe; trivial.
+  simpl in *.
+  rewrite IHe1; try fsetdec. rewrite IHe2; fsetdec.
+Qed.
 
 (** *** Exercise [fv_exp_open_exp_wrt_exp_upper] *)
 
@@ -540,7 +589,16 @@ Lemma fv_exp_open_exp_wrt_exp_upper :
 forall e1 e2,
   fv_exp (open_exp_wrt_exp e1 e2) [<=] fv_exp e2 `union` fv_exp e1.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold open.
+  generalize 0.
+  induction e1; intros; simpl; try fsetdec.
+  destruct (lt_eq_lt_dec n n0); try fsetdec.
+  destruct s; simpl; try fsetdec.
+  rewrite IHe1. fsetdec.
+  rewrite IHe1_1. rewrite IHe1_2. fsetdec.
+Qed.
+
 
 (*************************************************************************)
 (** ** Forall quantification in [lc_exp].                                *)
@@ -668,7 +726,12 @@ Proof. intros e1 e2 H. induction H; auto. Qed.
 Lemma typing_to_lc_exp : forall E e T,
   typing E e T -> lc_exp e.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction H; auto.
+  pick fresh x.
+  apply (lc_abs_exists x).
+  apply H0; fsetdec.
+Qed.
 
 (** *** Exercise [step_lc_exp2]
 
@@ -678,4 +741,12 @@ Proof.
 
 Lemma step_lc_exp2 : forall e1 e2, step e1 e2 -> lc_exp e2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction H; auto.
+  inversion H.
+  subst.
+  pick fresh x for (fv_exp e1).
+  rewrite (subst_exp_intro x).
+  apply subst_exp_lc_exp; auto.
+  fsetdec.
+Qed.
