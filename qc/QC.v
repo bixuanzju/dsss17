@@ -1551,17 +1551,30 @@ Function find (k:nat) (s: Map) {struct s} : option nat :=
   end.
 
 
+(** The idea is to calculte frequencies of each number appearing in the list
+using finite maps: the key is the number itself, the value is the count of that
+number *)
+
 Definition get_freq (l : list nat) : Map :=
   fold_right (fun k map => match find k map with
                         | Some v => add k (v+1) map
                         | none => add k 1 map
                         end ) empty l.
 
+(** generating a sorted list of numbers between 0 and 5 *)
 
 Definition uniform_sorted (gen : nat -> nat -> nat -> G (list nat)) :=
   forAll (gen 0 5 10) (fun l => collect (get_freq l) true).
 
 QuickChick (uniform_sorted genSortedList).
+
+
+(** It's not uniform because if the initial value of x is closer to high, then the
+range of possible numbers gets smaller.
+
+Possible fix: let's don't change low and high?
+
+ *)
 
 Fixpoint genSortedList' (low high : nat) (size : nat) : G (list nat) :=
   match size with
