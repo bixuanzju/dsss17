@@ -339,8 +339,17 @@ Proof.
   remember (G ++ E) as E'.
   generalize dependent G.
   induction H; intros G0 Eq Uniq; subst.
- (* FILL IN HERE *)
- Admitted.
+  - Case "var_f".
+    auto.
+  - Case "abs".
+    apply typing_abs with (L := L `union` dom(G0 ++ F ++ E)).
+    intros.
+    rewrite_env (([(x, T1)] ++ G0) ++ F ++ E).
+    apply H0; auto.
+    simpl_env. auto.
+  - Case "app".
+    eapply typing_app; eauto.
+Qed.
 
 
 (** *** Demo [typing_weakening]
@@ -416,7 +425,20 @@ Lemma typing_subst_var_case : forall (E F : ctx) u S T (z x : atom),
 Proof.
   intros E F u S T z x H J K.
   simpl.
- (* FILL IN HERE *) Admitted.
+  destruct (x == z).
+  - Case "x = z".
+    subst.
+    assert (T = S).
+    eapply binds_mid_eq; eauto.
+    subst.
+    apply typing_weakening; auto.
+    eapply uniq_remove_mid; eauto.
+  - Case "x /= z".
+    apply typing_var.
+    eapply uniq_remove_mid; eauto.
+    eapply binds_remove_mid; eauto.
+Qed.
+
 
 
 
@@ -449,7 +471,22 @@ Lemma typing_subst : forall (E F : ctx) e u S T (z : atom),
   typing E u S ->
   typing (F ++ E) ([z ~> u] e) T.
 Proof.
-(* FILL IN HERE *) Admitted.
+  intros.
+  remember (F ++ [(z,S)] ++ E) as E'.
+  generalize dependent F.
+  induction H; intros F Eq; subst; simpl.
+  - Case "var_f".
+    eapply typing_subst_var_case; eauto.
+  - Case "abs".
+    apply typing_abs with (L := singleton z  `union` L `union` dom (F ++ E)).
+    intros.
+    rewrite subst_var; auto.
+    rewrite_env (([(x, T1)] ++ F) ++ E).
+    apply H1; auto.
+    eapply typing_to_lc_exp; eauto.
+  - Case "app".
+    eapply typing_app; eauto.
+Qed.
 
 (** *** Exercise [typing_subst_simpl]
 
@@ -465,7 +502,10 @@ Lemma typing_subst_simple : forall (E : ctx) e u S T (z : atom),
   typing E u S ->
   typing E ([z ~> u] e) T.
 Proof.
-(* FILL IN HERE *) Admitted.
+  intros.
+  rewrite_env (nil ++ E).
+  eapply typing_subst; eauto.
+Qed.
 
 (*************************************************************************)
 (** * Type soundness *)
@@ -524,7 +564,17 @@ Proof.
   intros E e e' T H.
   generalize dependent e'.
   induction H; intros e' J.
-(* FILL IN HERE *) Admitted.
+  inversion J.
+  inversion J.
+  inversion J; subst.
+  inversion H; subst.
+  pick fresh x for (L `union` fv_exp(e0)).
+  rewrite subst_exp_intro with (x := x); auto.
+  eapply typing_subst_simple; auto.
+  eapply typing_app; eauto.
+Qed.
+
+
 
 (*************************************************************************)
 (** ** Progress *)
@@ -587,8 +637,27 @@ Proof.
   remember (@nil (atom * typ)) as E.
 
   induction H; subst.
+  inversion H1.
+  left. simpl. auto.
+  right.
+  assert (is_value e2 \/ (exists e' : exp, step e2 e')).
+  apply IHtyping2; auto.
+  assert (is_value e1 \/ (exists e' : exp, step e1 e')).
+  apply IHtyping1; auto.
+  destruct H3.
+  destruct e1; inversion H3.
+  exists (open e1 e2).
+  apply step_beta.
+  eapply typing_to_lc_exp; eauto.
+  eapply typing_to_lc_exp; eauto.
+  inversion H3 as [e''].
+  exists (app e'' e2).
+  apply step_app; auto.
+  eapply typing_to_lc_exp; eauto.
+Qed.
 
-(* FILL IN HERE *) Admitted.
+
+
 
 
 (*************************************************************************)
@@ -718,13 +787,35 @@ Qed.
 Lemma exists_cofinite : forall E e T,
     typing_e E e T -> typing E e T.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction H.
+  - Case "var_f".
+    apply typing_var; auto.
+  - Case "abs".
+    apply typing_abs with (L := dom E \u fv_exp e).
+    intros.
+    eapply typing_rename; eauto.
+  - Case "app".
+    eapply typing_app; eauto.
+Qed.
 
 (** *** Exercise [cofinite_exists] *)
 
 Lemma cofinite_exists : forall G e T,
     typing G e T -> typing_e G e T.
-Proof. (* FILL IN HERE *) Admitted.
+Proof.
+  intros.
+  induction H.
+  - Case "var_f".
+    apply typing_e_var; auto.
+  - Case "abs".
+    pick fresh x for (L \u dom G \u fv_exp e).
+    apply typing_e_abs with (x := x).
+    auto.
+    apply H0; auto.
+  - Case "app".
+    eapply typing_e_app; eauto.
+Qed.
 
 (***********************************************************************)
 (** ** Additional Exercises                                            *)
@@ -736,7 +827,47 @@ Proof. (* FILL IN HERE *) Admitted.
    terms are contained within the domain of their typing contexts.
 
  *)
+
+
+Lemma fv_open : forall x t,
+    fv_exp t  [<=] fv_exp (t ^ x).
+Proof.
+  intros.
+  intros y H.
+  unfold open.
+  generalize 0.
+  induction t; intros k; simpl; auto.
+  simpl in H.
+  assert (y \notin empty).
+  fsetdec.
+  contradiction.
+  simpl in H.
+  assert (y `in` fv_exp t1 \/ y `in` fv_exp t2).
+  fsetdec.
+  destruct H0; auto.
+Qed.
+
+
 Lemma fv_in_dom : forall G e T,
     typing G e T -> fv_exp e [<=] dom G.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction H; simpl; try fsetdec.
+  apply binds_In in H0.
+  fsetdec.
+  pick fresh x for (L \u fv_exp e).
+  intros y In.
+  destruct (y == x).
+  - Case "x = y".
+    subst.
+    assert (x \notin fv_exp e).
+    fsetdec.
+    contradiction.
+  - Case "x /= y".
+    assert (y `in` fv_exp (e ^ x)). apply fv_open; auto.
+    assert (fv_exp (e ^ x) [<=] dom ([(x, T1)] ++ G)).
+    apply H0; auto.
+    apply H2 in H1.
+    simpl in H1.
+    fsetdec.
+Qed.
