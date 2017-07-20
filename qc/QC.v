@@ -1576,14 +1576,17 @@ Possible fix: let's don't change low and high?
 
  *)
 
-Fixpoint genSortedList' (low high : nat) (size : nat) : G (list nat) :=
+Fixpoint genSortedList' (low high : nat) (size : nat)
+             : G (list nat) :=
   match size with
   | O => returnGen []
-  | S size' => freq [ (1, returnGen []) ; (size, x <- choose (low, high);; xs <- genSortedList low high size';; returnGen (x :: xs)) ]
-  end.
+  | S size' =>
+      freq [ (1, returnGen []) ;
+             (size, x <- choose (low, high);;
+                    xs <- genSortedList' low high size';;
+                    returnGen (x :: xs)) ] end.
 
 QuickChick (uniform_sorted genSortedList').
-
 
 (** [] *)
 

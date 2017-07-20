@@ -222,7 +222,17 @@ Fixpoint mach_interp (C: code) (fuel: nat)
       match code_at C pc, stk with
       | Some Ihalt, nil => Terminates st
       | Some (Iconst n), stk => mach_interp C fuel' (pc + 1) (n :: stk) st
-      (* FILL IN HERE *)
+      | Some (Ivar x), stk => mach_interp C fuel' (pc + 1) (st x :: stk) st
+      | Some (Isetvar x), n :: stk => mach_interp C fuel' (pc + 1) stk (t_update st x n)
+      | Some (Iadd), n2 :: n1 :: stk => mach_interp C fuel' (pc + 1) (n1 + n2 :: stk) st
+      | Some (Isub), n2 :: n1 :: stk => mach_interp C fuel' (pc + 1) (n1 - n2 :: stk) st
+      | Some (Imul), n2 :: n1 :: stk => mach_interp C fuel' (pc + 1) (n1 * n2 :: stk) st
+      | Some (Ibranch_forward ofs), stk => mach_interp C fuel' (pc + 1 + ofs) stk st
+      | Some (Ibranch_backward ofs), stk => mach_interp C fuel' (pc + 1 - ofs) stk st
+      | Some (Ibeq ofs), n2 :: n1 :: stk => mach_interp C fuel' (if beq_nat n1 n2 then pc + 1 + ofs else pc + 1) stk st
+      | Some (Ibne ofs), n2 :: n1 :: stk => mach_interp C fuel' (if beq_nat n1 n2 then pc + 1 else pc + 1 + ofs) stk st
+      | Some (Ible ofs), n2 :: n1 :: stk => mach_interp C fuel' (if leb n1 n2 then pc + 1 + ofs else pc + 1) stk st
+      | Some (Ibgt ofs), n2 :: n1 :: stk => mach_interp C fuel' (if leb n1 n2 then pc + 1  else pc + 1 + ofs) stk st
       | _, _ => GoesWrong
       end
   end.
@@ -360,6 +370,37 @@ Compute (compile_program (IFB BEq (AId vx) (ANum 1) THEN vx ::= ANum 0 ELSE SKIP
 
 Definition smart_Ibranch_forward (ofs: nat) : code :=
   if beq_nat ofs 0 then nil else Ibranch_forward(ofs) :: nil.
+
+
+Fixpoint compile_com' (c: com) : code :=
+  match c with
+  | SKIP =>
+      nil
+  | (id ::= a) =>
+      compile_aexp a ++ Isetvar id :: nil
+  | (c1 ;; c2) =>
+      compile_com' c1 ++ compile_com' c2
+  | IFB b THEN ifso ELSE ifnot FI =>
+      let code_ifso := compile_com' ifso in
+      let code_ifnot := compile_com' ifnot in
+      compile_bexp b false (length code_ifso + 1)
+      ++ code_ifso
+      ++ smart_Ibranch_forward (length code_ifnot)
+      ++ code_ifnot
+  | WHILE b DO body END =>
+      let code_body := compile_com' body in
+      let code_test := compile_bexp b false (length code_body + 1) in
+      code_test
+      ++ code_body
+      ++ Ibranch_backward (length code_test + length code_body + 1)
+      :: nil
+  end.
+
+Definition compile_program' (p: com) : code :=
+  compile_com' p ++ Ihalt :: nil.
+
+Compute (compile_program' (IFB BEq (AId vx) (ANum 1) THEN vx ::= ANum 0 ELSE SKIP FI)).
+
 
 (** * 3. Semantic preservation *)
 
