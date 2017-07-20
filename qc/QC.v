@@ -1578,25 +1578,6 @@ Definition uniform_sorted (gen : nat -> nat -> nat -> G (list nat)) :=
 QuickChick (uniform_sorted genSortedList).
 
 
-(** It's not uniform because if the initial value of x is closer to high, then the
-range of possible numbers gets smaller.
-
-Possible fix: let's don't change low and high?
-
- *)
-
-Fixpoint genSortedList' (low high : nat) (size : nat)
-             : G (list nat) :=
-  match size with
-  | O => returnGen []
-  | S size' =>
-      freq [ (1, returnGen []) ;
-             (size, x <- choose (low, high);;
-                    xs <- genSortedList' low high size';;
-                    returnGen (x :: xs)) ] end.
-
-QuickChick (uniform_sorted genSortedList').
-
 (** [] *)
 
 (* ================================================================= *)
