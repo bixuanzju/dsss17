@@ -499,7 +499,7 @@ Proof.
   induction a; simpl; intros.
 
 - (* ANum *)
-  apply star_one. apply trans_const. eauto with codeseq. 
+  apply star_one. apply trans_const. eauto with codeseq.
 
 - (* AId *)
   apply star_one. apply trans_var. eauto with codeseq. 
@@ -705,6 +705,14 @@ Lemma trans_smart_branch_forward:
   star (transition C) (pc, stk, st) (pc + length (smart_Ibranch_forward ofs) + ofs, stk, st).
 Proof.
   unfold smart_Ibranch_forward; intros.
+  destruct (beq_nat ofs 0).
+  normalize.
+  inversion H. subst.
+
+
+
+
+
   (* FILL IN HERE *)
 Admitted.
 

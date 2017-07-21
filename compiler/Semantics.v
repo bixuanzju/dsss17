@@ -136,21 +136,34 @@ Remark irred_SKIP:
   forall st, irred cstep (SKIP, st).
 Proof.
   unfold irred; intros st st' STEP.
-  (* FILL IN HERE *)
-Admitted.
+  inversion STEP.
+Qed.
 
 Lemma terminates_unique:
   forall c st st1 st2, terminates c st st1 -> terminates c st st2 -> st1 = st2.
 Proof.
-  unfold terminates; intros. 
-  (* FILL IN HERE *)
-Admitted.
+  unfold terminates; intros.
+  assert ((SKIP, st1) = (SKIP, st2)).
+  eapply finseq_unique; eauto.
+  intros.
+  eapply cstep_functional; eauto.
+  apply irred_SKIP.
+  apply irred_SKIP.
+  congruence.
+Qed.
+
 
 Lemma terminates_diverges_exclusive:
   forall c st st', terminates c st st' -> diverges c st -> False.
 Proof.
-  (* FILL IN HERE *)
-Admitted.
+  intros.
+  unfold terminates in *.
+  unfold diverges in *.
+  apply infseq_finseq_excl with (R := cstep) (a := (c,st)) (b := (SKIP, st')); auto.
+  intros.
+  eapply cstep_functional; eauto.
+  apply irred_SKIP.
+Qed.
 
 (** *** Exercise (3 stars, recommended) *)
 (** Show that Imp programs cannot go wrong.  Hint: first prove the following
@@ -160,8 +173,25 @@ Lemma cstep_progress:
   forall c st, c = SKIP \/ exists c', exists st', c / st ==> c' / st'.
 Proof.
   induction c; intros.
-  (* FILL IN HERE *)
-Admitted.
+  - left; auto.
+  - right. exists SKIP. exists (t_update st i (aeval st a )).
+    apply CS_Ass; auto.
+  - right.
+    destruct (IHc1 st);
+    destruct (IHc2 st); subst.
+    exists SKIP. exists st. apply CS_SeqFinish.
+    exists c2. exists st. apply CS_SeqFinish.
+    destruct H as [c' [st' ?]].
+    exists (c' ;; SKIP). exists st'. apply CS_SeqStep. assumption.
+    destruct H as [c' [st' ?]].
+    exists (c' ;; c2). exists st'. apply CS_SeqStep. assumption.
+  - right. destruct (beval st b) eqn:HH.
+    exists c1. exists st. apply CS_IfTrue. assumption.
+    exists c2. exists st. apply CS_IfFalse. assumption.
+  - right. exists (IFB b THEN (c ;; (WHILE b DO c END)) ELSE SKIP FI).
+    exists st. apply CS_While.
+Qed.
+
 
 Definition goes_wrong (c: com) (st: state) : Prop :=
   exists c', exists st',
@@ -171,16 +201,44 @@ Lemma not_goes_wrong:
   forall c st, ~(goes_wrong c st).
 Proof.
   unfold not, goes_wrong, irred; intros.
-  (* FILL IN HERE *)
-Admitted.
+  destruct H as [c' [st' [H1 [H2 H3]]]].
+  pose proof (cstep_progress c' st') as HH.
+  destruct HH. contradiction.
+  destruct H as [c'' [st'' H]].
+  pose (HH := H2 (c'', st'')).
+  apply HH. assumption.
+Qed.
 
 (** As a corollary, using the [infseq_or_finseq] theorem from module [Sequence], we obtain that any IMP program either terminates safely or diverges. *)
 
 Lemma terminates_or_diverges:
   forall c st, (exists st', terminates c st st') \/ diverges c st.
 Proof.
-  (* FILL IN HERE *)
-Admitted.
+  unfold terminates, diverges.
+  intros.
+  pose proof (infseq_or_finseq cstep (c, st)).
+  destruct H; auto.
+  destruct H as [(c'', st'') [? ?]].
+  pose proof (not_goes_wrong c st).
+  destruct c''.
+  left. exists st''. assumption.
+  assert (goes_wrong c st).
+  unfold goes_wrong.
+  exists (i ::= a). exists st''. split; auto. split; auto. congruence.
+  contradiction.
+  assert (goes_wrong c st).
+  unfold goes_wrong.
+  exists (c''1 ;; c''2). exists st''. split; auto. split; auto. congruence.
+  contradiction.
+  assert (goes_wrong c st).
+  unfold goes_wrong.
+  exists (IFB b THEN c''1 ELSE c''2 FI). exists st''. split; auto. split; auto. congruence.
+  contradiction.
+  assert (goes_wrong c st).
+  unfold goes_wrong.
+  exists (WHILE b DO c'' END). exists st''. split; auto. split; auto. congruence.
+  contradiction.
+Qed.
 
 (** Sequences of reductions can go under a sequence context, generalizing
   rule [CS_SeqStep]. *)
