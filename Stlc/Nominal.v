@@ -223,7 +223,11 @@ Qed.
 Lemma swap_symmetric : forall t x y,
     swap x y t = swap y x t.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  induction t; simpl;
+  unfold swap_var;
+  default_simp.
+Qed.
 
 Lemma swap_involutive : forall t x y,
     swap x y (swap x y t) = t.
@@ -383,7 +387,12 @@ semantics in the next section.
 Lemma values_are_done : forall D t,
     isVal t = true -> machine_step D (initconf t) = Done _.
 Proof.
-(* FILL IN HERE *) Admitted.
+  intros.
+  destruct t; inversion H.
+  reflexivity.
+Qed.
+
+
 
 
 (*************************************************************)
