@@ -55,8 +55,8 @@ Open Scope Z_scope.
 Definition MAX_COUNTER : nat := 10.
 Fact MAX_COUNTER_range : 4 * Z.of_nat MAX_COUNTER <= Int.max_unsigned.
 Proof.
-(** TUTORIAL: complete proof. Possible in 1 tactic. *)
-Admitted.
+  discriminate.
+Qed.
 Global Opaque MAX_COUNTER.
 
 (** These are the identifiers for the primitives and the global counter
