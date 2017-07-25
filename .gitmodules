@@ -1,0 +1,3 @@
+[submodule "deepspec-pocs"]
+	path = deepspec-pocs
+	url = git@github.com:mit-pdos/deepspec-pocs.git
