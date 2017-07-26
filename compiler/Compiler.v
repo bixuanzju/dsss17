@@ -705,16 +705,16 @@ Lemma trans_smart_branch_forward:
   star (transition C) (pc, stk, st) (pc + length (smart_Ibranch_forward ofs) + ofs, stk, st).
 Proof.
   unfold smart_Ibranch_forward; intros.
-  destruct (beq_nat ofs 0).
+  destruct (beq_nat ofs 0) eqn:eq.
   normalize.
-  inversion H. subst.
-
-
-
-
-
-  (* FILL IN HERE *)
-Admitted.
+  apply beq_nat_true in eq.
+  subst.
+  normalize.
+  apply star_refl.
+  normalize.
+  eapply star_one.
+  eapply trans_branch_forward; eauto with codeseq.
+Qed.
 
 (** *** Exercise (3 stars, optional) *)
 (** The manufacturer of our virtual machine offers a cheaper variant
@@ -1255,8 +1255,46 @@ Lemma compile_aexp_gen_correct:
        (pc + length (compile_aexp_gen ord a), aeval st a :: stk, st).
 Proof.
   induction a; simpl; intros.
-  (* FILL IN HERE *)
-Admitted.
+  - apply star_one. apply trans_const. eauto with codeseq.
+  - apply star_one. apply trans_var. eauto with codeseq.
+  - destruct (ord a1 a2).
+    eapply star_trans.
+    apply IHa1. eauto with codeseq.
+    eapply star_trans.
+    apply IHa2. eauto with codeseq.
+    apply star_one. normalize. apply trans_add. eauto with codeseq.
+
+    eapply star_trans.
+    apply IHa2. eauto with codeseq.
+    eapply star_trans.
+    apply IHa1. eauto with codeseq.
+    apply star_one. normalize.
+    assert (aeval st a1 + aeval st a2 = aeval st a2 + aeval st a1).
+    omega.
+    rewrite H0.
+    apply trans_add. eauto with codeseq.
+  - eapply star_trans.
+    apply IHa1. eauto with codeseq.
+    eapply star_trans.
+    apply IHa2. eauto with codeseq.
+    apply star_one. normalize. apply trans_sub. eauto with codeseq.
+  - destruct (ord a1 a2).
+    eapply star_trans.
+    apply IHa1. eauto with codeseq.
+    eapply star_trans.
+    apply IHa2. eauto with codeseq.
+    apply star_one. normalize. apply trans_mul. eauto with codeseq.
+
+    eapply star_trans.
+    apply IHa2. eauto with codeseq.
+    eapply star_trans.
+    apply IHa1. eauto with codeseq.
+    apply star_one. normalize.
+    assert (aeval st a1 * aeval st a2 = aeval st a2 * aeval st a1).
+    apply Nat.mul_comm.
+    rewrite H0.
+    apply trans_mul. eauto with codeseq.
+Qed.
 
 (** Now, let us try to compute the minimum number of stack entries
   needed to evaluate an expression, regardless of the strategy used. *)
