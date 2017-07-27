@@ -1354,8 +1354,11 @@ Fixpoint stack_usage (ord: aexp -> aexp -> eval_order) (a: aexp) : nat :=
 Lemma stack_needs_is_optimal:
   forall ord a, stack_needs a <= stack_usage ord a.
 Proof.
-  (* FILL IN HERE *)
-Admitted.
+  intros.
+  induction a; simpl; try (zify; omega).
+  destruct (ord a1 a2); zify; omega.
+  destruct (ord a1 a2); zify; omega.
+Qed.
 
 (** Useful tip: the tactic [zify; omega] works very well to prove
     arithmetic properties involving min and max operators. *)
@@ -1387,8 +1390,24 @@ Definition compile_aexp_optimal (a: aexp) : code :=
 Lemma stack_usage_optimal_ord:
   forall a, stack_usage optimal_ord a = stack_needs a.
 Proof.
-  (* FILL IN HERE *)
-Admitted.  
+  intros.
+  induction a; simpl; try (zify; omega);
+  rewrite IHa1; rewrite IHa2; clear IHa1 IHa2;
+  unfold optimal_ord in *.
+
+  destruct (stack_needs a2 <=? stack_needs a1) eqn:?.
+  apply leb_complete in Heqb.
+  zify; omega.
+  apply leb_iff_conv in Heqb.
+  zify; omega.
+
+  unfold optimal_ord in *.
+  destruct (stack_needs a2 <=? stack_needs a1) eqn:?.
+  apply leb_complete in Heqb.
+  zify; omega.
+  apply leb_iff_conv in Heqb.
+  zify; omega.
+Qed.
 
 (** So far, we've reasoned informally on the stack usage of a particular
   evaluation strategy.  Now, let us formally connect this reasoning with the
@@ -1406,6 +1425,18 @@ Inductive checked_transition (C: code) (maxstack: nat) : configuration -> config
   expression [a] with respect to a strategy [ord] execute safely
   if at least [stack_usage ord a] stack entries are available. *)
 
+
+Ltac crush := repeat
+  match goal with
+  | [ H : codeseq_at _ _ (Iconst _ :: nil) |- _ ] =>
+    apply star_one; constructor; [apply trans_const; eauto with codeseq | simpl; omega]
+
+  | [ H : codeseq_at _ _ (Ivar _ :: _) |- _ ] =>
+    apply star_one; constructor; [apply trans_var; eauto with codeseq | simpl; omega]
+  (* | H : context[ ord _ _ ] |- _ => destruct H *)
+  end.
+
+
 Lemma compile_aexp_gen_safe:
   forall ord C maxstack st a pc stk,
   codeseq_at C pc (compile_aexp_gen ord a) ->
@@ -1414,12 +1445,138 @@ Lemma compile_aexp_gen_safe:
        (pc, stk, st)
        (pc + length (compile_aexp_gen ord a), aeval st a :: stk, st).
 Proof.
-  induction a; simpl; intros.
-Admitted.
+  induction a; simpl; intros; crush.
+  - destruct (ord a1 a2).
+    + eapply star_trans.
+      apply IHa1.
+      eauto with codeseq.
+      zify; omega.
+      eapply star_trans.
+      apply IHa2.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+      normalize.
+      apply star_one.
+      constructor.
+      apply trans_add.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+    + eapply star_trans.
+      apply IHa2.
+      eauto with codeseq.
+      zify; omega.
+      eapply star_trans.
+      apply IHa1.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+      normalize.
+      apply star_one.
+      constructor.
+      assert (Eq : aeval st a1 + aeval st a2 = aeval st a2 + aeval st a1) by omega.
+      rewrite Eq.
+      apply trans_add.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+  - eapply star_trans.
+    apply IHa1.
+    eauto with codeseq.
+    zify; omega.
+    eapply star_trans.
+    apply IHa2.
+    eauto with codeseq.
+    simpl.
+    zify; omega.
+    apply star_one.
+    constructor.
+    normalize.
+    apply trans_sub.
+    eauto with codeseq.
+    simpl.
+    zify; omega.
+  - destruct (ord a1 a2).
+    + eapply star_trans.
+      apply IHa1.
+      eauto with codeseq.
+      zify; omega.
+      eapply star_trans.
+      apply IHa2.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+      normalize.
+      apply star_one.
+      constructor.
+      apply trans_mul.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+    + eapply star_trans.
+      apply IHa2.
+      eauto with codeseq.
+      zify; omega.
+      eapply star_trans.
+      apply IHa1.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+      normalize.
+      apply star_one.
+      constructor.
+      assert (Eq : aeval st a1 * aeval st a2 = aeval st a2 * aeval st a1).
+      apply Nat.mul_comm.
+      rewrite Eq.
+      apply trans_mul.
+      eauto with codeseq.
+      simpl.
+      zify; omega.
+Qed.
+
 
 (** Moreover, the size [stack_usage ord a] is tight, in that there exists
   a point in the execution of the compiled code for [a] where the stack
   is at least that big. *)
+
+
+Ltac solveit :=
+  repeat   match goal with
+           | |- context[ Nat.max ?a ?b] => destruct (max_spec a b) as [[? Equ] | [? Equ]]; rewrite Equ; clear Equ
+
+           | stk : stack, st : state, H : codeseq_at ?C ?pc (compile_aexp_gen _ ?a1 ++ compile_aexp_gen _ ?a2 ++ _ :: nil), IHa1 : context[ length _ >= length _ + stack_usage ?ord ?a1], IHa2 : context[ length _ >= length _ + stack_usage ?ord ?a2 ] |- context[ stack_usage ?ord ?a2 + 1] =>
+
+             assert (Equ : codeseq_at C (pc + length (compile_aexp_gen ord a1)) (compile_aexp_gen ord a2)) by eauto with codeseq;
+             specialize (IHa2 (pc + length (compile_aexp_gen ord a1)) (aeval st a1 :: stk) Equ);
+             destruct IHa2 as [pc0 [stk0 [Trans Neq]]];
+             exists pc0; exists stk0;
+             split; try (normalize; zify; omega);
+             eapply star_trans; [apply compile_aexp_gen_correct; eauto with codeseq | assumption]
+
+           | stk : stack, st : state, H : codeseq_at ?C ?pc (compile_aexp_gen _ ?a1 ++ compile_aexp_gen _ ?a2 ++ _ :: nil), IHa1 : context[ length _ >= length _ + stack_usage ?ord ?a1], IHa2 : context[ length _ >= length _ + stack_usage ?ord ?a2 ] |- context[ stack_usage ?ord ?a1] =>
+             assert (Equ : codeseq_at C pc (compile_aexp_gen ord a1)) by eauto with codeseq;
+             specialize (IHa1 pc stk Equ);
+             destruct IHa1 as [pc0 [stk0 [Trans Neq]]];
+             exists pc0; exists stk0;
+             split;
+             assumption;
+             zify; omega
+           | stk : stack, H : codeseq_at ?C ?pc (Iconst ?n :: nil) |- _ =>
+             exists (pc + 1); exists (n :: stk);
+             split; try (normalize; zify; omega);
+             apply star_one;
+             apply trans_const;
+             eauto with codeseq
+           | st: state, stk : stack, H : codeseq_at ?C ?pc (Ivar ?i :: nil) |- _ =>
+             exists (pc + 1); exists (st i :: stk);
+             split; try (normalize; zify; omega);
+             apply star_one;
+             apply trans_var;
+             eauto with codeseq
+
+           end.
+
 
 Lemma stack_usage_reached:
   forall ord C st a pc stk,
@@ -1429,8 +1586,12 @@ Lemma stack_usage_reached:
   /\ length stk' >= length stk + stack_usage ord a.
 Proof.
   induction a; simpl; intros.
-  (* FILL IN HERE *)
-Admitted.
+  - solveit.
+  - solveit.
+  - destruct (ord a1 a2); solveit.
+  - destruct (ord a1 a2); solveit.
+  - destruct (ord a1 a2); solveit.
+Qed.
 
 (** **** Full project (5 stars) *)
 
